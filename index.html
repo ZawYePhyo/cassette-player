@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cassette Player</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <!-- Tape Panel -->
+    <div class="tape-panel">
+      <div class="shelf-bracket-left"></div>
+      <div class="shelf-bracket-right"></div>
+      <div class="tape-header">
+        <h2 class="tape-title">Tape Shelf</h2>
+        <span class="tape-count" id="tapeCount">6 tapes</span>
+      </div>
+      <div class="tape-divider"></div>
+      <div class="tape-list" id="tapeList">
+        <!-- Tapes will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Player Section -->
+    <div class="player-section">
+      <!-- Playlist Toggle Button -->
+      <button class="playlist-toggle" id="playlistToggle" aria-label="Toggle playlist">
+        <span class="material-symbols-rounded">chevron_right</span>
+      </button>
+      <!-- Cassette Visual - Using embedded SVG for animation -->
+      <div class="cassette">
+        <object type="image/svg+xml" data="📼 Cassette.svg" class="cassette-svg" id="cassetteSvg"></object>
+        <!-- Dynamic track info overlay -->
+        <div class="cassette-info-overlay">
+          <div class="cassette-track-name" id="cassetteTrackName">ပြန်မလာတော့ဘူးကွယ်</div>
+          <div class="cassette-tape-name" id="cassetteTapeName">Burmese Lofi Vol. 1 - 4</div>
+        </div>
+      </div>
+
+      <!-- Progress Section -->
+      <div class="progress-section">
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="time-row">
+          <span class="current-time" id="currentTime">0:00</span>
+          <span class="total-time" id="totalTime">0:00</span>
+        </div>
+      </div>
+
+      <!-- Track Selector -->
+      <div class="track-selector">
+        <button class="track-btn active" data-index="0">
+          <span class="material-symbols-rounded">play_arrow</span>
+        </button>
+        <button class="track-btn" data-index="1">
+          <span class="material-symbols-rounded">skip_next</span>
+        </button>
+        <button class="track-btn" data-index="2">
+          <span class="material-symbols-rounded">skip_previous</span>
+        </button>
+        <button class="track-btn" data-index="3">
+          <span class="material-symbols-rounded">fast_forward</span>
+        </button>
+        <button class="track-btn" data-index="4">
+          <span class="material-symbols-rounded">fast_rewind</span>
+        </button>
+        <div class="track-btn volume-box" aria-label="Volume">
+          <div class="volume-dots" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="volume-knob" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div>
+          <div class="volume-labels" aria-hidden="true">
+            <span class="volume-min">MIN</span>
+            <span class="volume-max">MAX</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Playlist Panel -->
+    <div class="playlist-panel">
+      <div class="playlist-header">
+        <h2 class="playlist-title" id="playlistTitle">Burmese Lofi Vol. 1 - 4</h2>
+        <span class="track-count" id="trackCount">5 tracks</span>
+      </div>
+      <div class="playlist-divider"></div>
+      <div class="track-list" id="trackList">
+        <!-- Tracks will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden YouTube player container -->
+  <div id="youtubePlayerContainer" style="position: absolute; top: -9999px; left: -9999px;">
+    <div id="youtubePlayer"></div>
+  </div>
+
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="app.js"></script>
+</body>
+</html>

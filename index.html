@@ -14,6 +14,10 @@
   <div class="app">
     <!-- Tape Panel -->
     <div class="tape-panel">
+      <!-- Tape Shelf Toggle Handle (mobile/tablet) -->
+      <button class="tape-toggle" id="tapeToggle" aria-label="Toggle tape shelf">
+        <span class="tape-toggle-icon" aria-hidden="true">📼</span>
+      </button>
       <div class="shelf-bracket-left"></div>
       <div class="shelf-bracket-right"></div>
       <div class="tape-header">
@@ -28,15 +32,6 @@
 
     <!-- Player Section -->
     <div class="player-section">
-      <!-- Tape Shelf Toggle Button (mobile/tablet) -->
-      <button class="tape-toggle" id="tapeToggle" aria-label="Toggle tape shelf">
-        <span class="material-symbols-rounded">chevron_left</span>
-      </button>
-
-      <!-- Playlist Toggle Button -->
-      <button class="playlist-toggle" id="playlistToggle" aria-label="Toggle playlist">
-        <span class="material-symbols-rounded">chevron_right</span>
-      </button>
       <!-- Cassette Visual - Using embedded SVG for animation -->
       <div class="cassette">
         <object type="image/svg+xml" data="📼 Cassette.svg" class="cassette-svg" id="cassetteSvg"></object>
@@ -92,6 +87,10 @@
 
     <!-- Playlist Panel -->
     <div class="playlist-panel">
+      <!-- Playlist Toggle Handle (mobile/tablet) -->
+      <button class="playlist-toggle" id="playlistToggle" aria-label="Toggle playlist">
+        <span class="playlist-toggle-icon" aria-hidden="true">🎵</span>
+      </button>
       <div class="playlist-header">
         <h2 class="playlist-title" id="playlistTitle">Burmese Lofi Vol. 1 - 4</h2>
         <span class="track-count" id="trackCount">5 tracks</span>

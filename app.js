@@ -617,11 +617,28 @@ function updateTrackCount() {
 }
 
 let draggedTapeIndex = null;
+const MOBILE_TAPE_WHEEL_REPEAT = 5;
+let tapeScrollHandler = null;
+let tapeScrollSnapTimer = null;
+
+function isMobileTapeWheel() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
 
 function renderTapes() {
   if (!tapeList) return;
-  tapeList.innerHTML = tapes.map((tape, index) => `
-    <div class="tape-card ${index === currentTapeIndex ? 'active' : ''}" data-index="${index}" draggable="true">
+  const mobileWheel = isMobileTapeWheel();
+  const middleCopy = Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2);
+  const tapeCards = mobileWheel
+    ? Array.from({ length: tapes.length * MOBILE_TAPE_WHEEL_REPEAT }, (_, virtualIndex) => {
+        const index = virtualIndex % tapes.length;
+        const copy = Math.floor(virtualIndex / tapes.length);
+        return { tape: tapes[index], index, copy, virtualIndex };
+      })
+    : tapes.map((tape, index) => ({ tape, index, copy: 0, virtualIndex: index }));
+
+  tapeList.innerHTML = tapeCards.map(({ tape, index, copy, virtualIndex }) => `
+    <div class="tape-card ${index === currentTapeIndex && (!mobileWheel || copy === middleCopy) ? 'active' : ''}" data-index="${index}" data-copy="${copy}" data-virtual="${virtualIndex}" draggable="${mobileWheel ? 'false' : 'true'}">
       <div class="tape-art tone-${tape.tone} ${tape.artwork ? 'has-artwork' : ''}">
         ${tape.artwork ? `<img class="tape-image" src="${tape.artwork}" alt="" draggable="false" />` : ''}
         <div class="tape-title">${tape.title}</div>
@@ -655,6 +672,8 @@ function renderTapes() {
       // Load the tape
       loadTape(index);
     });
+
+    if (mobileWheel) return;
 
     // Drag and drop events
     card.addEventListener('dragstart', (e) => {
@@ -728,6 +747,105 @@ function renderTapes() {
       renderTapes();
     });
   });
+
+  setupTapeWheelLoop();
+  updateTapeWheelState('auto');
+}
+
+function centerSelectedTapeCard(behavior = 'smooth') {
+  if (!tapeList || !isMobileTapeWheel()) return;
+  const middleCopy = Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2);
+  const activeCard = tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-copy="${middleCopy}"]`);
+  if (activeCard) {
+    activeCard.scrollIntoView({ block: 'center', inline: 'nearest', behavior });
+  }
+}
+
+function setupTapeWheelLoop() {
+  if (!tapeList) return;
+
+  if (tapeScrollHandler) {
+    tapeList.removeEventListener('scroll', tapeScrollHandler);
+    tapeScrollHandler = null;
+  }
+
+  if (!isMobileTapeWheel()) return;
+
+  tapeScrollHandler = () => {
+    const segmentHeight = tapeList.scrollHeight / MOBILE_TAPE_WHEEL_REPEAT;
+    if (!segmentHeight) return;
+
+    if (tapeList.scrollTop < segmentHeight * 0.75) {
+      tapeList.scrollTop += segmentHeight;
+    } else if (tapeList.scrollTop > segmentHeight * (MOBILE_TAPE_WHEEL_REPEAT - 1.75)) {
+      tapeList.scrollTop -= segmentHeight;
+    }
+
+    if (tapeScrollSnapTimer) clearTimeout(tapeScrollSnapTimer);
+    tapeScrollSnapTimer = setTimeout(() => {
+      const listRect = tapeList.getBoundingClientRect();
+      const centerY = listRect.top + (listRect.height / 2);
+      let nearestCard = null;
+      let nearestDist = Infinity;
+
+      tapeList.querySelectorAll('.tape-card').forEach(card => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.top + (rect.height / 2);
+        const dist = Math.abs(cardCenter - centerY);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestCard = card;
+        }
+      });
+
+      if (!nearestCard) return;
+      const index = parseInt(nearestCard.dataset.index);
+      if (index !== currentTapeIndex) {
+        if (isPlaying) pauseTrack();
+        loadTape(index);
+      } else {
+        centerSelectedTapeCard('smooth');
+      }
+    }, 120);
+  };
+
+  tapeList.addEventListener('scroll', tapeScrollHandler, { passive: true });
+
+  const segmentHeight = tapeList.scrollHeight / MOBILE_TAPE_WHEEL_REPEAT;
+  if (segmentHeight) {
+    tapeList.scrollTop = segmentHeight * Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2);
+  }
+  centerSelectedTapeCard('auto');
+}
+
+function updateTapeWheelState(centerBehavior = 'smooth') {
+  if (!tapeList) return;
+
+  const cards = tapeList.querySelectorAll('.tape-card');
+  const mobileWheel = isMobileTapeWheel();
+  const middleCopy = Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2);
+  const activeVirtual = mobileWheel
+    ? parseInt(tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-copy="${middleCopy}"]`)?.dataset.virtual || currentTapeIndex)
+    : currentTapeIndex;
+
+  cards.forEach(card => {
+    const rawOffset = mobileWheel
+      ? parseInt(card.dataset.virtual) - activeVirtual
+      : parseInt(card.dataset.index) - currentTapeIndex;
+    const offset = Math.max(-3, Math.min(3, rawOffset));
+    card.dataset.wheelOffset = String(offset);
+    card.dataset.wheelFar = Math.abs(rawOffset) > 3 ? 'true' : 'false';
+    card.classList.toggle(
+      'active',
+      mobileWheel
+        ? parseInt(card.dataset.virtual) === activeVirtual
+        : parseInt(card.dataset.index) === currentTapeIndex
+    );
+  });
+
+  if (mobileWheel) {
+    centerSelectedTapeCard(centerBehavior);
+  }
 }
 
 // Load track (seek to timestamp or load new video for playlists)
@@ -1300,6 +1418,7 @@ function loadTape(tapeIndex) {
   currentTrackIndex = 0;
   updateActiveStates();
   updateCassetteDisplay();
+  updateTapeWheelState();
 
   // Reset progress
   progressFill.style.width = '0%';

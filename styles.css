@@ -747,11 +747,11 @@ body {
 
 .playlist-toggle {
   position: absolute;
-  top: 18px;
-  left: -34px;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px 0 0 10px;
+  top: 16px;
+  left: -42px;
+  width: 42px;
+  height: 52px;
+  border-radius: 26px 0 0 26px;
   background: var(--bg-darker);
   border: 1px solid #1d1a1d;
   border-right: none;
@@ -765,11 +765,11 @@ body {
 
 .tape-toggle {
   position: absolute;
-  top: 18px;
-  right: -34px;
-  width: 34px;
-  height: 34px;
-  border-radius: 0 10px 10px 0;
+  top: 16px;
+  right: -42px;
+  width: 42px;
+  height: 52px;
+  border-radius: 0 26px 26px 0;
   background: var(--bg-darker);
   border: 1px solid #1d1a1d;
   border-left: none;
@@ -804,7 +804,7 @@ body {
 }
 
 .playlist-toggle-icon {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
   display: block;
 }
@@ -819,17 +819,17 @@ body {
 
 .playlist-panel.hidden .playlist-toggle {
   position: absolute;
-  top: 18px;
-  left: -34px;
+  top: 16px;
+  left: -42px;
   right: auto;
   z-index: 60;
   border-right: none;
-  border-radius: 10px 0 0 10px;
+  border-radius: 26px 0 0 26px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
 .tape-toggle-icon {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
   display: block;
   transform: translateX(-0.5px);
@@ -1210,11 +1210,11 @@ body {
   .playlist-toggle {
     display: flex;
     position: absolute;
-    top: 18px;
-    left: -34px;
-    width: 34px;
-    height: 34px;
-    border-radius: 10px 0 0 10px;
+    top: 16px;
+    left: -42px;
+    width: 42px;
+    height: 52px;
+    border-radius: 26px 0 0 26px;
     background: var(--bg-darker);
     border: 1px solid #1d1a1d;
     border-right: none;
@@ -1225,8 +1225,8 @@ body {
   .tape-toggle {
     display: flex;
     position: absolute;
-    top: 18px;
-    right: -34px;
+    top: 16px;
+    right: -42px;
     transform: none;
     z-index: 35;
   }

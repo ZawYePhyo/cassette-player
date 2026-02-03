@@ -620,6 +620,7 @@ let draggedTapeIndex = null;
 const MOBILE_TAPE_WHEEL_REPEAT = 5;
 let tapeScrollHandler = null;
 let tapeScrollSnapTimer = null;
+let wheelPreferredVirtual = null;
 
 function isMobileTapeWheel() {
   return window.matchMedia('(max-width: 900px)').matches;
@@ -663,6 +664,10 @@ function renderTapes() {
       // Stop current playback
       if (isPlaying) {
         pauseTrack();
+      }
+
+      if (mobileWheel && card.dataset.virtual) {
+        wheelPreferredVirtual = parseInt(card.dataset.virtual);
       }
 
       // Update active state
@@ -754,9 +759,28 @@ function renderTapes() {
 
 function centerSelectedTapeCard(behavior = 'smooth') {
   if (!tapeList || !isMobileTapeWheel()) return;
-  const middleCopy = Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2);
-  const activeCard = tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-copy="${middleCopy}"]`);
+  let activeCard = null;
+  if (wheelPreferredVirtual !== null) {
+    activeCard = tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-virtual="${wheelPreferredVirtual}"]`);
+  }
+
+  if (!activeCard) {
+    const listRect = tapeList.getBoundingClientRect();
+    const centerY = listRect.top + (listRect.height / 2);
+    let nearestDist = Infinity;
+    tapeList.querySelectorAll(`.tape-card[data-index="${currentTapeIndex}"]`).forEach(card => {
+      const rect = card.getBoundingClientRect();
+      const cardCenter = rect.top + (rect.height / 2);
+      const dist = Math.abs(cardCenter - centerY);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        activeCard = card;
+      }
+    });
+  }
+
   if (activeCard) {
+    wheelPreferredVirtual = parseInt(activeCard.dataset.virtual);
     activeCard.scrollIntoView({ block: 'center', inline: 'nearest', behavior });
   }
 }
@@ -800,6 +824,7 @@ function setupTapeWheelLoop() {
 
       if (!nearestCard) return;
       const index = parseInt(nearestCard.dataset.index);
+      wheelPreferredVirtual = parseInt(nearestCard.dataset.virtual);
       if (index !== currentTapeIndex) {
         if (isPlaying) pauseTrack();
         loadTape(index);
@@ -815,6 +840,10 @@ function setupTapeWheelLoop() {
   if (segmentHeight) {
     tapeList.scrollTop = segmentHeight * Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2);
   }
+  wheelPreferredVirtual = parseInt(
+    tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-copy="${Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2)}"]`)?.dataset.virtual
+      || currentTapeIndex
+  );
   centerSelectedTapeCard('auto');
 }
 
@@ -823,10 +852,32 @@ function updateTapeWheelState(centerBehavior = 'smooth') {
 
   const cards = tapeList.querySelectorAll('.tape-card');
   const mobileWheel = isMobileTapeWheel();
-  const middleCopy = Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2);
-  const activeVirtual = mobileWheel
-    ? parseInt(tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-copy="${middleCopy}"]`)?.dataset.virtual || currentTapeIndex)
-    : currentTapeIndex;
+  let activeVirtual = wheelPreferredVirtual ?? currentTapeIndex;
+
+  if (mobileWheel) {
+    const preferred = tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-virtual="${activeVirtual}"]`);
+    if (!preferred) {
+      const listRect = tapeList.getBoundingClientRect();
+      const centerY = listRect.top + (listRect.height / 2);
+      let nearestCard = null;
+      let nearestDist = Infinity;
+
+      tapeList.querySelectorAll(`.tape-card[data-index="${currentTapeIndex}"]`).forEach(card => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.top + (rect.height / 2);
+        const dist = Math.abs(cardCenter - centerY);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestCard = card;
+        }
+      });
+
+      if (nearestCard) {
+        activeVirtual = parseInt(nearestCard.dataset.virtual);
+      }
+    }
+    wheelPreferredVirtual = activeVirtual;
+  }
 
   cards.forEach(card => {
     const rawOffset = mobileWheel

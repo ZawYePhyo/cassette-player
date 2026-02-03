@@ -1388,8 +1388,20 @@ function setKnobFromVolume(value) {
   });
 }
 
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((error) => {
+      console.warn('Service worker registration failed:', error);
+    });
+  });
+}
+
 // Initialize on load
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+  registerServiceWorker();
+});
 
 // YouTube IFrame API Ready callback
 function onYouTubeIframeAPIReady() {

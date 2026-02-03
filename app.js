@@ -414,6 +414,7 @@ const trackCount = document.getElementById('trackCount');
 const playlistTitle = document.getElementById('playlistTitle');
 const cassetteTrackName = document.getElementById('cassetteTrackName');
 const cassetteTapeName = document.getElementById('cassetteTapeName');
+const cassetteInfoOverlay = document.querySelector('.cassette-info-overlay');
 const tapeList = document.getElementById('tapeList');
 const tapeCount = document.getElementById('tapeCount');
 // SVG reel elements (accessed after SVG loads)
@@ -968,6 +969,10 @@ function updateCassetteDisplay() {
   }
   if (cassetteTapeName && track) {
     cassetteTapeName.textContent = track.album || track.artist || '';
+  }
+  if (cassetteInfoOverlay && tape) {
+    const isBurmeseTapeName = !tape.title.startsWith('Burmese Lofi');
+    cassetteInfoOverlay.classList.toggle('compact-burmese-meta', isBurmeseTapeName);
   }
 
   if (cassetteTapeArt && tape) {

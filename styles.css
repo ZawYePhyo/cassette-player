@@ -462,6 +462,10 @@ body {
   font-family: var(--font-family);
 }
 
+.cassette-info-overlay.compact-burmese-meta .cassette-tape-name {
+  margin-top: 0;
+}
+
 
 
 /* Progress Section */
@@ -1087,6 +1091,11 @@ body {
 
   .volume-knob {
     z-index: 3;
+  }
+
+  .volume-labels {
+    font-size: 8px;
+    letter-spacing: 0.45px;
   }
 
   .playlist-panel {

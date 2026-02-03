@@ -1157,16 +1157,50 @@ function setupEventListeners() {
   });
 
   // Playlist toggle
+  const tapeToggle = document.getElementById('tapeToggle');
   const playlistToggle = document.getElementById('playlistToggle');
   const appEl = document.querySelector('.app');
   const playlistPanel = document.querySelector('.playlist-panel');
+  const isMobileLayout = () => window.matchMedia('(max-width: 900px)').matches;
 
   if (playlistToggle && appEl && playlistPanel) {
     playlistToggle.addEventListener('click', () => {
-      appEl.classList.toggle('playlist-hidden');
-      playlistPanel.classList.toggle('hidden');
+      if (isMobileLayout()) {
+        const opening = !appEl.classList.contains('playlist-open');
+        appEl.classList.toggle('playlist-open', opening);
+        if (opening) {
+          appEl.classList.remove('tapes-open');
+        }
+      } else {
+        appEl.classList.toggle('playlist-hidden');
+        playlistPanel.classList.toggle('hidden');
+      }
     });
   }
+
+  if (tapeToggle && appEl) {
+    tapeToggle.addEventListener('click', () => {
+      if (!isMobileLayout()) return;
+      const opening = !appEl.classList.contains('tapes-open');
+      appEl.classList.toggle('tapes-open', opening);
+      if (opening) {
+        appEl.classList.remove('playlist-open');
+      }
+    });
+  }
+
+  const syncPanelStateToViewport = () => {
+    if (!appEl || !playlistPanel) return;
+    if (isMobileLayout()) {
+      appEl.classList.remove('playlist-hidden');
+      playlistPanel.classList.remove('hidden');
+    } else {
+      appEl.classList.remove('playlist-open', 'tapes-open');
+    }
+  };
+
+  syncPanelStateToViewport();
+  window.addEventListener('resize', syncPanelStateToViewport);
 }
 
 function setKnobFromVolume(value) {

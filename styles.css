@@ -401,8 +401,9 @@ body {
 /* Cassette Visual - Using SVG */
 .cassette {
   position: relative;
-  width: 520px;
-  height: 330px;
+  width: min(100%, 520px);
+  aspect-ratio: 520 / 330;
+  height: auto;
   overflow: hidden;
   transition: transform 0.1s ease;
 }
@@ -423,10 +424,10 @@ body {
 
 .cassette-svg {
   position: absolute;
-  width: 766px;
-  height: 700px;
-  top: -78px;
-  left: -142px;
+  width: 147.31%;
+  height: 212.12%;
+  top: -23.64%;
+  left: -27.31%;
   transform: scale(1.05);
   transform-origin: top left;
 }
@@ -434,19 +435,19 @@ body {
 /* Cassette info overlay */
 .cassette-info-overlay {
   position: absolute;
-  top: 50px;
-  left: 115px;
+  top: 15.15%;
+  left: 22.12%;
   z-index: 10;
   pointer-events: none;
 }
 
 
 .cassette-track-name {
-  font-size: 18px;
+  font-size: clamp(14px, 2.2vw, 18px);
   font-weight: 700;
   color: #292729;
   letter-spacing: -0.3px;
-  max-width: 280px;
+  max-width: min(280px, 56vw);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -454,7 +455,7 @@ body {
 }
 
 .cassette-tape-name {
-  font-size: 10px;
+  font-size: clamp(9px, 1.4vw, 10px);
   color: #292729;
   letter-spacing: -0.2px;
   margin-top: 2px;
@@ -763,7 +764,31 @@ body {
   transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
+.tape-toggle {
+  position: absolute;
+  top: 50%;
+  left: 24px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-darker);
+  border: 1px solid #2c292c;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
 .playlist-toggle:hover {
+  background: #2c292c;
+  color: var(--text-primary);
+}
+
+.tape-toggle:hover {
   background: #2c292c;
   color: var(--text-primary);
 }
@@ -772,12 +797,29 @@ body {
   transform: translateY(-50%) scale(0.95);
 }
 
+.tape-toggle:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
 .playlist-toggle .material-symbols-rounded {
   font-size: 20px;
   transition: transform 0.3s ease;
 }
 
+.tape-toggle .material-symbols-rounded {
+  font-size: 20px;
+  transition: transform 0.3s ease;
+}
+
 .app.playlist-hidden .playlist-toggle .material-symbols-rounded {
+  transform: rotate(180deg);
+}
+
+.app.playlist-open .playlist-toggle .material-symbols-rounded {
+  transform: rotate(180deg);
+}
+
+.app.tapes-open .tape-toggle .material-symbols-rounded {
   transform: rotate(180deg);
 }
 
@@ -908,26 +950,165 @@ body {
 
 /* Responsive */
 @media (max-width: 900px) {
+  body {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
   .app {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto auto;
+    grid-template-rows: 1fr;
     grid-template-areas:
-      "player"
-      "playlist"
-      "tapes";
+      "player";
+    min-height: 100dvh;
+    height: auto;
+    position: relative;
   }
 
   .player-section {
     width: 100%;
+    padding: 20px 16px;
+    gap: 16px;
+    min-height: 100dvh;
+  }
+
+  .cassette {
+    width: min(100%, 460px);
+  }
+
+  .progress-section {
+    max-width: min(100%, 520px);
+  }
+
+  .track-selector {
+    width: 100%;
+    max-width: min(100%, 520px);
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .track-btn {
+    width: 100%;
+    min-width: 0;
+    height: clamp(72px, 20vw, 96px);
+  }
+
+  .track-btn::after {
+    width: clamp(34px, 11vw, 48px);
+    height: clamp(34px, 11vw, 48px);
   }
 
   .playlist-panel {
-    width: 100%;
-    height: auto;
-    max-height: 300px;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(82vw, 340px);
+    height: 100dvh;
+    border-left: 1px solid #1d1a1d;
+    z-index: 25;
+    transform: translateX(100%);
+    opacity: 1;
+    pointer-events: none;
+    transition: transform 0.25s ease;
+    padding: 16px 14px;
+  }
+
+  .app.playlist-open .playlist-panel {
+    transform: translateX(0);
+    pointer-events: auto;
   }
 
   .tape-panel {
-    height: 140px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(82vw, 340px);
+    height: 100dvh;
+    border-top: none;
+    border-right: 1px solid #1d1a1d;
+    z-index: 25;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    padding: 14px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .tape-list {
+    gap: 10px;
+    padding: 8px 2px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .tape-list::before,
+  .tape-list::after,
+  .tape-panel::before,
+  .tape-panel::after,
+  .shelf-bracket-left,
+  .shelf-bracket-right {
+    display: none;
+  }
+
+  .app.tapes-open .tape-panel {
+    transform: translateX(0);
+  }
+
+  .tape-art {
+    width: 108px;
+    height: 170px;
+  }
+
+  .tape-toggle,
+  .playlist-toggle {
+    display: flex;
+    position: fixed;
+    top: 16px;
+    transform: none;
+    z-index: 40;
+  }
+
+  .tape-toggle {
+    left: 12px;
+  }
+
+  .playlist-toggle {
+    right: 12px;
+  }
+
+  .playlist-toggle:active,
+  .tape-toggle:active {
+    transform: scale(0.95);
+  }
+}
+
+@media (max-width: 640px) {
+  .tape-art {
+    width: 114px;
+    height: 178px;
+  }
+
+  .playlist-title {
+    font-size: 16px;
+  }
+
+  .track-item {
+    padding: 10px 6px;
+  }
+
+  .track-item .track-name {
+    font-size: 13px;
+  }
+
+  .cassette-track-name {
+    max-width: 54vw;
   }
 }

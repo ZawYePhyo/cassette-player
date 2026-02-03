@@ -1011,6 +1011,10 @@ body {
     width: min(100%, 460px);
   }
 
+  .cassette-track-name {
+    font-size: clamp(12px, 1.8vw, 15px);
+  }
+
   .progress-section {
     max-width: min(100%, 520px);
   }

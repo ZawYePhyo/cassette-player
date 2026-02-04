@@ -17,12 +17,16 @@
 </head>
 <body>
   <div class="app">
+    <!-- Panel Toggle Handles -->
+    <button class="tape-toggle" id="tapeToggle" aria-label="Toggle tape shelf">
+      <span class="tape-toggle-icon" aria-hidden="true">📼</span>
+    </button>
+    <button class="playlist-toggle" id="playlistToggle" aria-label="Toggle playlist">
+      <span class="playlist-toggle-icon" aria-hidden="true">🎵</span>
+    </button>
+
     <!-- Tape Panel -->
     <div class="tape-panel">
-      <!-- Tape Shelf Toggle Handle (mobile/tablet) -->
-      <button class="tape-toggle" id="tapeToggle" aria-label="Toggle tape shelf">
-        <span class="tape-toggle-icon" aria-hidden="true">📼</span>
-      </button>
       <div class="shelf-bracket-left"></div>
       <div class="shelf-bracket-right"></div>
       <div class="tape-header">
@@ -92,10 +96,6 @@
 
     <!-- Playlist Panel -->
     <div class="playlist-panel">
-      <!-- Playlist Toggle Handle (mobile/tablet) -->
-      <button class="playlist-toggle" id="playlistToggle" aria-label="Toggle playlist">
-        <span class="playlist-toggle-icon" aria-hidden="true">🎵</span>
-      </button>
       <div class="playlist-header">
         <h2 class="playlist-title" id="playlistTitle">Burmese Lofi Vol. 1 - 4</h2>
         <span class="track-count" id="trackCount">5 tracks</span>

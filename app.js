@@ -1,128 +1,5 @@
 // Cassette Player App - YouTube Integration
 
-// Audio feedback system
-let audioCtx = null;
-
-function initAudioContext() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-  return audioCtx;
-}
-
-// Mechanical click sound
-function playClickSound() {
-  const ctx = initAudioContext();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  const filter = ctx.createBiquadFilter();
-
-  filter.type = 'highpass';
-  filter.frequency.value = 1000;
-
-  osc.type = 'square';
-  osc.frequency.setValueAtTime(800, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.02);
-
-  gain.gain.setValueAtTime(0.15, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-
-  osc.connect(filter);
-  filter.connect(gain);
-  gain.connect(ctx.destination);
-
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.05);
-}
-
-// Tape insert/eject sound
-function playTapeInsertSound() {
-  const ctx = initAudioContext();
-
-  // Mechanical clunk
-  const noise = ctx.createBufferSource();
-  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
-  const noiseData = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < noiseData.length; i++) {
-    noiseData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.03));
-  }
-  noise.buffer = noiseBuffer;
-
-  const noiseFilter = ctx.createBiquadFilter();
-  noiseFilter.type = 'bandpass';
-  noiseFilter.frequency.value = 400;
-  noiseFilter.Q.value = 2;
-
-  const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.2, ctx.currentTime);
-
-  noise.connect(noiseFilter);
-  noiseFilter.connect(noiseGain);
-  noiseGain.connect(ctx.destination);
-
-  // Thunk tone
-  const osc = ctx.createOscillator();
-  const oscGain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(150, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.1);
-  oscGain.gain.setValueAtTime(0.15, ctx.currentTime);
-  oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-
-  osc.connect(oscGain);
-  oscGain.connect(ctx.destination);
-
-  noise.start(ctx.currentTime);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.15);
-}
-
-// Fast-forward/rewind whirring sound
-let whirringOsc = null;
-let whirringGain = null;
-
-function startWhirringSound() {
-  const ctx = initAudioContext();
-
-  if (whirringOsc) return; // Already playing
-
-  whirringOsc = ctx.createOscillator();
-  whirringGain = ctx.createGain();
-  const filter = ctx.createBiquadFilter();
-
-  whirringOsc.type = 'sawtooth';
-  whirringOsc.frequency.value = 80;
-
-  filter.type = 'lowpass';
-  filter.frequency.value = 500;
-
-  whirringGain.gain.setValueAtTime(0, ctx.currentTime);
-  whirringGain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.1);
-
-  whirringOsc.connect(filter);
-  filter.connect(whirringGain);
-  whirringGain.connect(ctx.destination);
-
-  whirringOsc.start();
-}
-
-function stopWhirringSound() {
-  if (whirringOsc && whirringGain) {
-    const ctx = initAudioContext();
-    whirringGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
-    setTimeout(() => {
-      if (whirringOsc) {
-        whirringOsc.stop();
-        whirringOsc = null;
-        whirringGain = null;
-      }
-    }, 150);
-  }
-}
-
 // Current playlist (will be set by selected tape)
 let playlist = [];
 
@@ -610,6 +487,8 @@ function renderPlaylist() {
       loadTrack(index, true);
     });
   });
+
+  trackList.scrollTop = 0;
 }
 
 // Update track count
@@ -620,11 +499,14 @@ function updateTrackCount() {
 let draggedTapeIndex = null;
 const MOBILE_TAPE_WHEEL_REPEAT = 5;
 let tapeScrollHandler = null;
+let tapeWheelHandler = null;
+let trackListWheelHandler = null;
 let tapeScrollSnapTimer = null;
 let wheelPreferredVirtual = null;
+let wheelFocusedIndex = null;
 
 function isMobileTapeWheel() {
-  return window.matchMedia('(max-width: 900px)').matches;
+  return true;
 }
 
 function renderTapes() {
@@ -670,6 +552,7 @@ function renderTapes() {
       if (mobileWheel && card.dataset.virtual) {
         wheelPreferredVirtual = parseInt(card.dataset.virtual);
       }
+      wheelFocusedIndex = index;
 
       // Update active state
       tapeList.querySelectorAll('.tape-card').forEach(c => c.classList.remove('active'));
@@ -760,16 +643,17 @@ function renderTapes() {
 
 function centerSelectedTapeCard(behavior = 'smooth') {
   if (!tapeList || !isMobileTapeWheel()) return;
+  const selectedIndex = wheelFocusedIndex ?? currentTapeIndex;
   let activeCard = null;
   if (wheelPreferredVirtual !== null) {
-    activeCard = tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-virtual="${wheelPreferredVirtual}"]`);
+    activeCard = tapeList.querySelector(`.tape-card[data-index="${selectedIndex}"][data-virtual="${wheelPreferredVirtual}"]`);
   }
 
   if (!activeCard) {
     const listRect = tapeList.getBoundingClientRect();
     const centerY = listRect.top + (listRect.height / 2);
     let nearestDist = Infinity;
-    tapeList.querySelectorAll(`.tape-card[data-index="${currentTapeIndex}"]`).forEach(card => {
+    tapeList.querySelectorAll(`.tape-card[data-index="${selectedIndex}"]`).forEach(card => {
       const rect = card.getBoundingClientRect();
       const cardCenter = rect.top + (rect.height / 2);
       const dist = Math.abs(cardCenter - centerY);
@@ -782,7 +666,14 @@ function centerSelectedTapeCard(behavior = 'smooth') {
 
   if (activeCard) {
     wheelPreferredVirtual = parseInt(activeCard.dataset.virtual);
-    activeCard.scrollIntoView({ block: 'center', inline: 'nearest', behavior });
+    // Manual scroll to center the card without affecting parent containers
+    const listRect = tapeList.getBoundingClientRect();
+    const cardRect = activeCard.getBoundingClientRect();
+    const scrollOffset = (cardRect.top + cardRect.height / 2) - (listRect.top + listRect.height / 2);
+    tapeList.scrollTo({
+      top: tapeList.scrollTop + scrollOffset,
+      behavior
+    });
   }
 }
 
@@ -793,8 +684,20 @@ function setupTapeWheelLoop() {
     tapeList.removeEventListener('scroll', tapeScrollHandler);
     tapeScrollHandler = null;
   }
+  if (tapeWheelHandler) {
+    tapeList.removeEventListener('wheel', tapeWheelHandler);
+    tapeWheelHandler = null;
+  }
 
   if (!isMobileTapeWheel()) return;
+
+  // Keep wheel scrolling isolated to the tape shelf so it doesn't chain into sibling panels.
+  tapeWheelHandler = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    tapeList.scrollTop += event.deltaY;
+  };
+  tapeList.addEventListener('wheel', tapeWheelHandler, { passive: false });
 
   tapeScrollHandler = () => {
     const segmentHeight = tapeList.scrollHeight / MOBILE_TAPE_WHEEL_REPEAT;
@@ -826,9 +729,9 @@ function setupTapeWheelLoop() {
       if (!nearestCard) return;
       const index = parseInt(nearestCard.dataset.index);
       wheelPreferredVirtual = parseInt(nearestCard.dataset.virtual);
-      if (index !== currentTapeIndex) {
-        if (isPlaying) pauseTrack();
-        loadTape(index);
+      if (index !== (wheelFocusedIndex ?? currentTapeIndex)) {
+        wheelFocusedIndex = index;
+        updateTapeWheelState('smooth');
       } else {
         centerSelectedTapeCard('smooth');
       }
@@ -845,6 +748,7 @@ function setupTapeWheelLoop() {
     tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-copy="${Math.floor(MOBILE_TAPE_WHEEL_REPEAT / 2)}"]`)?.dataset.virtual
       || currentTapeIndex
   );
+  wheelFocusedIndex = currentTapeIndex;
   centerSelectedTapeCard('auto');
 }
 
@@ -853,17 +757,18 @@ function updateTapeWheelState(centerBehavior = 'smooth') {
 
   const cards = tapeList.querySelectorAll('.tape-card');
   const mobileWheel = isMobileTapeWheel();
-  let activeVirtual = wheelPreferredVirtual ?? currentTapeIndex;
+  const selectedIndex = mobileWheel ? (wheelFocusedIndex ?? currentTapeIndex) : currentTapeIndex;
+  let activeVirtual = wheelPreferredVirtual ?? selectedIndex;
 
   if (mobileWheel) {
-    const preferred = tapeList.querySelector(`.tape-card[data-index="${currentTapeIndex}"][data-virtual="${activeVirtual}"]`);
+    const preferred = tapeList.querySelector(`.tape-card[data-index="${selectedIndex}"][data-virtual="${activeVirtual}"]`);
     if (!preferred) {
       const listRect = tapeList.getBoundingClientRect();
       const centerY = listRect.top + (listRect.height / 2);
       let nearestCard = null;
       let nearestDist = Infinity;
 
-      tapeList.querySelectorAll(`.tape-card[data-index="${currentTapeIndex}"]`).forEach(card => {
+      tapeList.querySelectorAll(`.tape-card[data-index="${selectedIndex}"]`).forEach(card => {
         const rect = card.getBoundingClientRect();
         const cardCenter = rect.top + (rect.height / 2);
         const dist = Math.abs(cardCenter - centerY);
@@ -891,7 +796,7 @@ function updateTapeWheelState(centerBehavior = 'smooth') {
       'active',
       mobileWheel
         ? parseInt(card.dataset.virtual) === activeVirtual
-        : parseInt(card.dataset.index) === currentTapeIndex
+        : parseInt(card.dataset.index) === selectedIndex
     );
   });
 
@@ -1132,10 +1037,6 @@ function nextTrack() {
 
 // Rewind (skip back 10 seconds, stay within track)
 function rewind() {
-  // Play whirring sound briefly
-  startWhirringSound();
-  setTimeout(stopWhirringSound, 300);
-
   if (ytPlayer && ytReady && playlist.length > 0) {
     const currentTime = ytPlayer.getCurrentTime();
     const tape = tapes[currentTapeIndex];
@@ -1156,10 +1057,6 @@ function rewind() {
 
 // Fast forward (skip ahead 10 seconds, stay within track)
 function fastForward() {
-  // Play whirring sound briefly
-  startWhirringSound();
-  setTimeout(stopWhirringSound, 300);
-
   if (ytPlayer && ytReady && playlist.length > 0) {
     const currentTime = ytPlayer.getCurrentTime();
     const tape = tapes[currentTapeIndex];
@@ -1247,6 +1144,19 @@ function setupEventListeners() {
   // Progress bar
   progressBar.addEventListener('click', seek);
 
+  // Isolate track list scrolling
+  if (trackList) {
+    if (trackListWheelHandler) {
+      trackList.removeEventListener('wheel', trackListWheelHandler);
+    }
+    trackListWheelHandler = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      trackList.scrollTop += event.deltaY;
+    };
+    trackList.addEventListener('wheel', trackListWheelHandler, { passive: false });
+  }
+
   // Volume
   if (volumeKnob) {
     const onPointerMove = (e) => {
@@ -1281,7 +1191,6 @@ function setupEventListeners() {
     const release = () => btn.classList.remove('pressed');
     btn.addEventListener('pointerdown', () => {
       press();
-      playClickSound();
     });
     btn.addEventListener('pointerup', release);
     btn.addEventListener('pointerleave', release);
@@ -1335,7 +1244,7 @@ function setupEventListeners() {
   const playlistToggle = document.getElementById('playlistToggle');
   const appEl = document.querySelector('.app');
   const playlistPanel = document.querySelector('.playlist-panel');
-  const isMobileLayout = () => window.matchMedia('(max-width: 900px)').matches;
+  const isMobileLayout = () => window.matchMedia('(max-width: 1100px)').matches;
 
   if (playlistToggle && appEl && playlistPanel) {
     playlistToggle.addEventListener('click', () => {
@@ -1354,11 +1263,14 @@ function setupEventListeners() {
 
   if (tapeToggle && appEl) {
     tapeToggle.addEventListener('click', () => {
-      if (!isMobileLayout()) return;
-      const opening = !appEl.classList.contains('tapes-open');
-      appEl.classList.toggle('tapes-open', opening);
-      if (opening) {
-        appEl.classList.remove('playlist-open');
+      if (isMobileLayout()) {
+        const opening = !appEl.classList.contains('tapes-open');
+        appEl.classList.toggle('tapes-open', opening);
+        if (opening) {
+          appEl.classList.remove('playlist-open');
+        }
+      } else {
+        appEl.classList.toggle('tapes-hidden');
       }
     });
   }
@@ -1366,9 +1278,11 @@ function setupEventListeners() {
   const syncPanelStateToViewport = () => {
     if (!appEl || !playlistPanel) return;
     if (isMobileLayout()) {
-      appEl.classList.remove('playlist-hidden');
+      // Reset desktop states when entering mobile
+      appEl.classList.remove('playlist-hidden', 'tapes-hidden');
       playlistPanel.classList.remove('hidden');
     } else {
+      // Reset mobile states when entering desktop
       appEl.classList.remove('playlist-open', 'tapes-open');
     }
   };
@@ -1439,10 +1353,8 @@ function onPlayerReady(event) {
 
 // Load a tape and its tracks
 function loadTape(tapeIndex) {
-  // Play tape insert sound
-  playTapeInsertSound();
-
   currentTapeIndex = tapeIndex;
+  wheelFocusedIndex = tapeIndex;
   const tape = tapes[tapeIndex];
 
   if (!tape || (!tape.videoId && !tape.isPlaylist)) return;

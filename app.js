@@ -270,6 +270,10 @@ let ytProgressInterval = null;
 let currentTrackIndex = 0;
 let isPlaying = false;
 let volume = 0.7;
+const PLAYER_STATE_STORAGE_KEY = 'cassette-player-state-v1';
+let restoredPlayerState = null;
+let playbackResumeSeconds = null;
+let lastPersistedStateAt = 0;
 
 // DOM Elements
 const playBtn = null;
@@ -432,6 +436,97 @@ function stopReelAnimation() {
 const trackBtns = document.querySelectorAll('.track-btn');
 const playToggleBtn = document.querySelector('.track-btn[data-index="0"]');
 
+function readPersistedPlayerState() {
+  try {
+    const raw = localStorage.getItem(PLAYER_STATE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch (error) {
+    console.warn('Failed to read persisted player state:', error);
+    return null;
+  }
+}
+
+function clearPersistedPlayerState() {
+  try {
+    localStorage.removeItem(PLAYER_STATE_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Failed to clear persisted player state:', error);
+  }
+  restoredPlayerState = null;
+  playbackResumeSeconds = null;
+}
+
+function persistPlayerState(options = {}) {
+  const { force = false } = options;
+  try {
+    const now = Date.now();
+    if (!force && now - lastPersistedStateAt < 1000) return;
+    const appEl = document.querySelector('.app');
+    const payload = {
+      tapeIndex: currentTapeIndex,
+      trackIndex: currentTrackIndex,
+      volume,
+      isPlaying,
+      playbackSeconds: playbackResumeSeconds,
+      panels: appEl ? {
+        playlistHidden: appEl.classList.contains('playlist-hidden'),
+        tapesHidden: appEl.classList.contains('tapes-hidden'),
+        playlistOpen: appEl.classList.contains('playlist-open'),
+        tapesOpen: appEl.classList.contains('tapes-open')
+      } : null,
+      updatedAt: now
+    };
+    localStorage.setItem(PLAYER_STATE_STORAGE_KEY, JSON.stringify(payload));
+    lastPersistedStateAt = now;
+  } catch (error) {
+    console.warn('Failed to persist player state:', error);
+  }
+}
+
+const resetStateViaQuery = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get('resetState') === '1';
+  } catch (_) {
+    return false;
+  }
+})();
+
+if (resetStateViaQuery) {
+  clearPersistedPlayerState();
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('resetState');
+    window.history.replaceState({}, '', url.toString());
+  } catch (_) {
+    // ignore URL cleanup failures
+  }
+}
+
+restoredPlayerState = readPersistedPlayerState();
+if (restoredPlayerState) {
+  if (Number.isFinite(restoredPlayerState.tapeIndex)) {
+    currentTapeIndex = Math.max(0, Math.min(tapes.length - 1, Math.floor(restoredPlayerState.tapeIndex)));
+  }
+  if (Number.isFinite(restoredPlayerState.trackIndex)) {
+    currentTrackIndex = Math.max(0, Math.floor(restoredPlayerState.trackIndex));
+  }
+  if (Number.isFinite(restoredPlayerState.volume)) {
+    volume = Math.max(0, Math.min(1, restoredPlayerState.volume));
+  }
+  if (Number.isFinite(restoredPlayerState.playbackSeconds)) {
+    playbackResumeSeconds = Math.max(0, restoredPlayerState.playbackSeconds);
+  }
+}
+
+// Dev helper: run resetCassettePlayerState() in console to clear saved app state and reload.
+window.resetCassettePlayerState = () => {
+  clearPersistedPlayerState();
+  window.location.reload();
+};
+
 // Initialize
 function init() {
   // Load initial tape's tracks into playlist
@@ -456,6 +551,11 @@ function init() {
       }));
     }
   }
+  if (playlist.length > 0) {
+    currentTrackIndex = Math.max(0, Math.min(currentTrackIndex, playlist.length - 1));
+  } else {
+    currentTrackIndex = 0;
+  }
 
   renderTapes();
   renderPlaylist();
@@ -463,6 +563,7 @@ function init() {
   updateTrackCount();
   setKnobFromVolume(volume);
   updateCassetteDisplay();
+  persistPlayerState({ force: true });
   // YouTube player will handle video loading when ready
 }
 
@@ -827,6 +928,7 @@ function loadTrack(index, autoPlay = false) {
   }
 
   currentTrackIndex = index;
+  playbackResumeSeconds = null;
   const track = playlist[index];
   const tape = tapes[currentTapeIndex];
 
@@ -859,6 +961,7 @@ function loadTrack(index, autoPlay = false) {
   // Reset progress for this track
   progressFill.style.width = '0%';
   currentTimeEl.textContent = '0:00';
+  persistPlayerState({ force: true });
 }
 
 // Update active states
@@ -1010,16 +1113,19 @@ function playTrack() {
   isPlaying = true;
   updatePlayButton();
   startReelAnimation();
+  persistPlayerState({ force: true });
 }
 
 // Pause track
 function pauseTrack() {
   if (ytPlayer && ytReady) {
+    playbackResumeSeconds = ytPlayer.getCurrentTime();
     ytPlayer.pauseVideo();
   }
   isPlaying = false;
   updatePlayButton();
   stopReelAnimation();
+  persistPlayerState({ force: true });
 }
 
 // Toggle play/pause
@@ -1096,6 +1202,7 @@ function updateVolume(value) {
     ytPlayer.setVolume(volume * 100);
   }
   setKnobFromVolume(volume);
+  persistPlayerState({ force: true });
 }
 
 // Seek within current track
@@ -1112,6 +1219,7 @@ function seek(e) {
       const videoDuration = ytPlayer.getDuration();
       const seekTo = percent * videoDuration;
       ytPlayer.seekTo(seekTo, true);
+      playbackResumeSeconds = seekTo;
     } else {
       // Single video tape: seek within timestamp range
       const trackStart = track.startSeconds || 0;
@@ -1127,7 +1235,9 @@ function seek(e) {
       const trackDuration = trackEnd - trackStart;
       const seekTo = trackStart + (percent * trackDuration);
       ytPlayer.seekTo(seekTo, true);
+      playbackResumeSeconds = seekTo;
     }
+    persistPlayerState({ force: true });
   }
 }
 
@@ -1266,6 +1376,7 @@ function setupEventListeners() {
         appEl.classList.toggle('playlist-hidden');
         playlistPanel.classList.toggle('hidden');
       }
+      persistPlayerState({ force: true });
     });
   }
 
@@ -1280,6 +1391,7 @@ function setupEventListeners() {
       } else {
         appEl.classList.toggle('tapes-hidden');
       }
+      persistPlayerState({ force: true });
     });
   }
 
@@ -1296,6 +1408,18 @@ function setupEventListeners() {
   };
 
   syncPanelStateToViewport();
+  if (restoredPlayerState?.panels && appEl && playlistPanel) {
+    if (isMobileLayout()) {
+      const { playlistOpen, tapesOpen } = restoredPlayerState.panels;
+      appEl.classList.toggle('playlist-open', !!playlistOpen);
+      appEl.classList.toggle('tapes-open', !!tapesOpen && !playlistOpen);
+    } else {
+      const { playlistHidden, tapesHidden } = restoredPlayerState.panels;
+      appEl.classList.toggle('playlist-hidden', !!playlistHidden);
+      appEl.classList.toggle('tapes-hidden', !!tapesHidden);
+      playlistPanel.classList.toggle('hidden', !!playlistHidden);
+    }
+  }
   window.addEventListener('resize', syncPanelStateToViewport);
 }
 
@@ -1312,10 +1436,53 @@ function setKnobFromVolume(value) {
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch((error) => {
-      console.warn('Service worker registration failed:', error);
+  let hasReloadedForSw = false;
+
+  const toastEl = document.getElementById('pwaUpdateToast');
+  const toastBtn = document.getElementById('pwaUpdateBtn');
+
+  const showUpdateToast = (onReload) => {
+    if (!toastEl || !toastBtn) return;
+    toastEl.hidden = false;
+    toastBtn.onclick = onReload;
+  };
+
+  const watchRegistration = (registration) => {
+    if (!registration) return;
+
+    if (registration.waiting) {
+      showUpdateToast(() => {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      });
+    }
+
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateToast(() => {
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+          });
+        }
+      });
     });
+  };
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hasReloadedForSw) return;
+    hasReloadedForSw = true;
+    window.location.reload();
+  });
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then((registration) => {
+        watchRegistration(registration);
+      })
+      .catch((error) => {
+        console.warn('Service worker registration failed:', error);
+      });
   });
 }
 
@@ -1356,11 +1523,24 @@ function onPlayerReady(event) {
   ytPlayer.setVolume(volume * 100);
 
   // Load tracks from the selected tape
-  loadTape(currentTapeIndex);
+  const restoredTrackIndex = Number.isFinite(restoredPlayerState?.trackIndex)
+    ? Math.max(0, Math.floor(restoredPlayerState.trackIndex))
+    : 0;
+  const shouldResumePlay = !!restoredPlayerState?.isPlaying;
+  loadTape(currentTapeIndex, {
+    preferredTrackIndex: restoredTrackIndex,
+    resumeSeconds: playbackResumeSeconds,
+    autoPlay: shouldResumePlay
+  });
 }
 
 // Load a tape and its tracks
-function loadTape(tapeIndex) {
+function loadTape(tapeIndex, options = {}) {
+  const {
+    preferredTrackIndex = 0,
+    resumeSeconds = null,
+    autoPlay = false
+  } = options;
   currentTapeIndex = tapeIndex;
   wheelFocusedIndex = tapeIndex;
   const tape = tapes[tapeIndex];
@@ -1388,12 +1568,23 @@ function loadTape(tapeIndex) {
   }
 
   // Load the video
+  const clampedTrackIndex = Math.max(0, Math.min(preferredTrackIndex, Math.max(playlist.length - 1, 0)));
+  currentTrackIndex = clampedTrackIndex;
+  playbackResumeSeconds = Number.isFinite(resumeSeconds) ? Math.max(0, resumeSeconds) : null;
+
   if (ytPlayer && ytReady) {
-    if (tape.isPlaylist && tape.tracks.length > 0) {
-      // Load first track's video for playlist tapes
-      ytPlayer.cueVideoById(tape.tracks[0].videoId);
+    if (tape.isPlaylist && playlist.length > 0) {
+      const selectedTrack = playlist[clampedTrackIndex];
+      ytPlayer.cueVideoById({
+        videoId: selectedTrack.videoId,
+        startSeconds: playbackResumeSeconds || 0
+      });
     } else if (tape.videoId) {
-      ytPlayer.cueVideoById(tape.videoId);
+      const fallbackStart = playlist[clampedTrackIndex]?.startSeconds || 0;
+      ytPlayer.cueVideoById({
+        videoId: tape.videoId,
+        startSeconds: playbackResumeSeconds ?? fallbackStart
+      });
     }
   }
 
@@ -1403,7 +1594,6 @@ function loadTape(tapeIndex) {
   }
   renderPlaylist();
   updateTrackCount();
-  currentTrackIndex = 0;
   updateActiveStates();
   updateCassetteDisplay();
   updateTapeWheelState();
@@ -1412,8 +1602,16 @@ function loadTape(tapeIndex) {
   progressFill.style.width = '0%';
   currentTimeEl.textContent = '0:00';
   if (playlist.length > 0) {
-    totalTimeEl.textContent = playlist[0].duration;
+    totalTimeEl.textContent = playlist[currentTrackIndex].duration;
   }
+
+  if (autoPlay && ytPlayer && ytReady) {
+    setTimeout(() => {
+      playTrack();
+    }, 120);
+  }
+
+  persistPlayerState({ force: true });
 }
 
 // Parse timestamp string to seconds
@@ -1447,6 +1645,7 @@ function onPlayerStateChange(event) {
         startReelAnimation();
       }
       startYTProgressUpdate();
+      persistPlayerState({ force: true });
       break;
 
     case YT.PlayerState.PAUSED:
@@ -1456,6 +1655,7 @@ function onPlayerStateChange(event) {
         stopReelAnimation();
       }
       stopYTProgressUpdate();
+      persistPlayerState({ force: true });
       break;
 
     case YT.PlayerState.ENDED:
@@ -1522,6 +1722,7 @@ function startYTProgressUpdate() {
           progressFill.style.width = `${percent}%`;
           currentTimeEl.textContent = formatTime(currentTime);
           totalTimeEl.textContent = formatTime(videoDuration);
+          playbackResumeSeconds = currentTime;
         }
       } else {
         // Single video tape: track progress within timestamp range
@@ -1542,6 +1743,7 @@ function startYTProgressUpdate() {
           const percent = Math.max(0, Math.min(100, (trackProgress / trackDuration) * 100));
           progressFill.style.width = `${percent}%`;
           currentTimeEl.textContent = formatTime(Math.max(0, trackProgress));
+          playbackResumeSeconds = currentTime;
 
           // Auto-advance to next track when current track ends
           if (currentTime >= trackEnd && currentTrackIndex < playlist.length - 1) {
@@ -1553,6 +1755,7 @@ function startYTProgressUpdate() {
           }
         }
       }
+      persistPlayerState({ force: true });
     }
   }, 250);
 }

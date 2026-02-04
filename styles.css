@@ -77,6 +77,43 @@ html {
   height: 100vh;
 }
 
+.pwa-update-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(20, 18, 20, 0.96);
+  border: 1px solid #2b262b;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  color: var(--text-primary);
+}
+
+.pwa-update-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pwa-update-btn {
+  border: 1px solid #4b3f3f;
+  background: var(--accent-red);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.pwa-update-btn:hover {
+  background: #a8403b;
+}
+
 .app.playlist-hidden .player-section,
 .app.tapes-hidden .player-section {
   width: calc(100vw - 330px);

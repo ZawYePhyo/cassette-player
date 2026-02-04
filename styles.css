@@ -1076,6 +1076,7 @@ html {
   .track-btn,
   .playlist-toggle,
   .tape-toggle,
+  .pwa-update-btn,
   .track-item,
   .tape-card,
   .volume-knob,
@@ -1088,6 +1089,7 @@ html {
   .track-btn:focus,
   .playlist-toggle:focus,
   .tape-toggle:focus,
+  .pwa-update-btn:focus,
   .track-item:focus,
   .tape-card:focus,
   .volume-knob:focus {

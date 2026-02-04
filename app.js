@@ -1441,6 +1441,17 @@ function registerServiceWorker() {
   const toastEl = document.getElementById('pwaUpdateToast');
   const toastBtn = document.getElementById('pwaUpdateBtn');
 
+  const applyUpdateAndReload = (worker) => {
+    if (toastEl) toastEl.hidden = true;
+    if (worker) {
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    }
+    // Fallback for environments where controllerchange is delayed/missed.
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 1200);
+  };
+
   const showUpdateToast = (onReload) => {
     if (!toastEl || !toastBtn) return;
     toastEl.hidden = false;
@@ -1452,7 +1463,7 @@ function registerServiceWorker() {
 
     if (registration.waiting) {
       showUpdateToast(() => {
-        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        applyUpdateAndReload(registration.waiting);
       });
     }
 
@@ -1462,7 +1473,7 @@ function registerServiceWorker() {
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
           showUpdateToast(() => {
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
+            applyUpdateAndReload(newWorker);
           });
         }
       });

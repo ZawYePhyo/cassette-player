@@ -504,6 +504,8 @@ let trackListWheelHandler = null;
 let tapeScrollSnapTimer = null;
 let wheelPreferredVirtual = null;
 let wheelFocusedIndex = null;
+let tapeWheelScrollCooldownTimer = null;
+let tapeWheelIsScrolling = false;
 
 function isMobileTapeWheel() {
   return true;
@@ -538,6 +540,7 @@ function renderTapes() {
   tapeList.querySelectorAll('.tape-card').forEach(card => {
     // Click to select tape
     card.addEventListener('click', () => {
+      if (tapeWheelIsScrolling) return;
       const index = parseInt(card.dataset.index);
       const tape = tapes[index];
 
@@ -695,6 +698,11 @@ function setupTapeWheelLoop() {
   tapeWheelHandler = (event) => {
     event.preventDefault();
     event.stopPropagation();
+    tapeWheelIsScrolling = true;
+    if (tapeWheelScrollCooldownTimer) clearTimeout(tapeWheelScrollCooldownTimer);
+    tapeWheelScrollCooldownTimer = setTimeout(() => {
+      tapeWheelIsScrolling = false;
+    }, 180);
     tapeList.scrollTop += event.deltaY;
   };
   tapeList.addEventListener('wheel', tapeWheelHandler, { passive: false });

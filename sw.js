@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'cassette-static-v1';
-const RUNTIME_CACHE = 'cassette-runtime-v1';
+const STATIC_CACHE = 'cassette-static-v2';
+const RUNTIME_CACHE = 'cassette-runtime-v2';
 
 const APP_SHELL = [
   '/',
@@ -54,6 +54,20 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin === self.location.origin) {
+    const isCoreAsset = APP_SHELL.some((path) => url.pathname === path);
+    if (isCoreAsset) {
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            const copy = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, copy));
+            return response;
+          })
+          .catch(() => caches.match(event.request))
+      );
+      return;
+    }
+
     event.respondWith(
       caches.match(event.request).then((cached) => {
         const networkFetch = fetch(event.request)

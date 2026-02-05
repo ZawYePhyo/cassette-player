@@ -94,6 +94,10 @@ html {
   color: var(--text-primary);
 }
 
+.pwa-update-toast[hidden] {
+  display: none;
+}
+
 .pwa-update-text {
   font-size: 13px;
   color: var(--text-secondary);

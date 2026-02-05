@@ -1495,13 +1495,14 @@ function setupVolumePopup() {
   // Popup knob drag handling
   const onPopupPointerMove = (e) => {
     const rect = popupKnob.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-    let degrees = angle * (180 / Math.PI) + 90;
-    if (degrees < -135) degrees += 360;
-    degrees = Math.max(-135, Math.min(135, degrees));
-    const newVolume = (degrees + 135) / 270;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    let deg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+    if (deg > 180) deg -= 360;
+    const clamped = Math.max(-135, Math.min(135, deg));
+    const newVolume = (clamped + 135) / 270;
     volume = Math.max(0, Math.min(1, newVolume));
     setKnobFromVolume(volume);
     if (ytPlayer && ytReady) {

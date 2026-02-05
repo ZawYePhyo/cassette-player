@@ -19,10 +19,10 @@
   <div class="app">
     <!-- Panel Toggle Handles -->
     <button class="tape-toggle" id="tapeToggle" aria-label="Toggle tape shelf">
-      <span class="tape-toggle-icon" aria-hidden="true">📼</span>
+      <span class="material-symbols-rounded tape-toggle-icon" aria-hidden="true">album</span>
     </button>
     <button class="playlist-toggle" id="playlistToggle" aria-label="Toggle playlist">
-      <span class="playlist-toggle-icon" aria-hidden="true">🎵</span>
+      <span class="material-symbols-rounded playlist-toggle-icon" aria-hidden="true">queue_music</span>
     </button>
 
     <!-- Tape Panel -->
@@ -64,20 +64,20 @@
 
       <!-- Track Selector -->
       <div class="track-selector">
-        <button class="track-btn active" data-index="0">
-          <span class="material-symbols-rounded">play_arrow</span>
-        </button>
-        <button class="track-btn" data-index="1">
-          <span class="material-symbols-rounded">skip_next</span>
-        </button>
         <button class="track-btn" data-index="2">
           <span class="material-symbols-rounded">skip_previous</span>
+        </button>
+        <button class="track-btn" data-index="4">
+          <span class="material-symbols-rounded">fast_rewind</span>
+        </button>
+        <button class="track-btn active" data-index="0">
+          <span class="material-symbols-rounded">play_arrow</span>
         </button>
         <button class="track-btn" data-index="3">
           <span class="material-symbols-rounded">fast_forward</span>
         </button>
-        <button class="track-btn" data-index="4">
-          <span class="material-symbols-rounded">fast_rewind</span>
+        <button class="track-btn" data-index="1">
+          <span class="material-symbols-rounded">skip_next</span>
         </button>
         <div class="track-btn volume-box" aria-label="Volume">
           <div class="volume-dots" aria-hidden="true">
@@ -115,6 +115,21 @@
   <div class="pwa-update-toast" id="pwaUpdateToast" role="status" aria-live="polite" hidden>
     <span class="pwa-update-text">New version available</span>
     <button class="pwa-update-btn" id="pwaUpdateBtn" type="button">Reload</button>
+  </div>
+
+  <!-- Volume Popup for Mobile -->
+  <div class="volume-popup-overlay" id="volumePopupOverlay" hidden>
+    <div class="volume-popup" id="volumePopup">
+      <div class="volume-popup-dots" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="volume-popup-knob" id="volumePopupKnob" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div>
+      <div class="volume-popup-labels" aria-hidden="true">
+        <span class="volume-min">MIN</span>
+        <span class="volume-max">MAX</span>
+      </div>
+    </div>
   </div>
 
   <!-- YouTube IFrame API -->

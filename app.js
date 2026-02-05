@@ -1323,9 +1323,10 @@ function setupEventListeners() {
   }
 
   // Track selector buttons
-  trackBtns.forEach((btn, index) => {
+  trackBtns.forEach((btn) => {
     const press = () => btn.classList.add('pressed');
     const release = () => btn.classList.remove('pressed');
+    const dataIndex = btn.getAttribute('data-index');
     btn.addEventListener('pointerdown', () => {
       press();
     });
@@ -1336,15 +1337,15 @@ function setupEventListeners() {
       setTimeout(release, 120);
     });
     btn.addEventListener('click', () => {
-      if (index === 0) {
+      if (dataIndex === '0') {
         togglePlay();
-      } else if (index === 1) {
+      } else if (dataIndex === '1') {
         nextTrack();
-      } else if (index === 2) {
+      } else if (dataIndex === '2') {
         prevTrack();
-      } else if (index === 3) {
+      } else if (dataIndex === '3') {
         fastForward();
-      } else if (index === 4) {
+      } else if (dataIndex === '4') {
         rewind();
       }
     });
@@ -1451,7 +1452,79 @@ function setKnobFromVolume(value) {
   volumeDots.forEach((dot, i) => {
     dot.classList.toggle('active', i <= litCount);
   });
+
+  // Sync popup knob if it exists
+  const popupKnob = document.getElementById('volumePopupKnob');
+  const popupDots = document.querySelectorAll('.volume-popup-dots span');
+  if (popupKnob) {
+    popupKnob.style.transform = `rotate(${angle}deg)`;
+    popupKnob.setAttribute('aria-valuenow', Math.round(value * 100).toString());
+  }
+  if (popupDots.length > 0) {
+    popupDots.forEach((dot, i) => {
+      dot.classList.toggle('active', i <= litCount);
+    });
+  }
 }
+
+// Volume popup for mobile
+function setupVolumePopup() {
+  const volumeBox = document.querySelector('.volume-box');
+  const popupOverlay = document.getElementById('volumePopupOverlay');
+  const popupKnob = document.getElementById('volumePopupKnob');
+  const isMobile = () => window.matchMedia('(max-width: 1100px)').matches;
+
+  if (!volumeBox || !popupOverlay || !popupKnob) return;
+
+  // Open popup on volume box click (mobile only)
+  volumeBox.addEventListener('click', (e) => {
+    if (isMobile()) {
+      e.stopPropagation();
+      popupOverlay.hidden = false;
+      setKnobFromVolume(volume); // Sync popup state
+    }
+  });
+
+  // Close popup on overlay click
+  popupOverlay.addEventListener('click', (e) => {
+    if (e.target === popupOverlay) {
+      popupOverlay.hidden = true;
+    }
+  });
+
+  // Popup knob drag handling
+  const onPopupPointerMove = (e) => {
+    const rect = popupKnob.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+    let degrees = angle * (180 / Math.PI) + 90;
+    if (degrees < -135) degrees += 360;
+    degrees = Math.max(-135, Math.min(135, degrees));
+    const newVolume = (degrees + 135) / 270;
+    volume = Math.max(0, Math.min(1, newVolume));
+    setKnobFromVolume(volume);
+    if (ytPlayer && ytReady) {
+      ytPlayer.setVolume(volume * 100);
+    }
+    persistPlayerState({ force: true });
+  };
+
+  const onPopupPointerUp = () => {
+    window.removeEventListener('pointermove', onPopupPointerMove);
+    window.removeEventListener('pointerup', onPopupPointerUp);
+  };
+
+  popupKnob.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onPopupPointerMove(e);
+    window.addEventListener('pointermove', onPopupPointerMove);
+    window.addEventListener('pointerup', onPopupPointerUp);
+  });
+}
+
+setupVolumePopup();
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;

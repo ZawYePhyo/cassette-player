@@ -314,7 +314,8 @@ let rightRingAngle = 0;
 // Tape shelf data is defined above with tracks
 // Wait for SVG to load and setup reel references
 const cassetteSvg = document.getElementById('cassetteSvg');
-cassetteSvg.addEventListener('load', function() {
+
+function initializeCassetteSvg() {
   svgDoc = cassetteSvg.contentDocument;
   if (svgDoc) {
     // Remove static text paths from the SVG label (legacy placeholders)
@@ -330,7 +331,19 @@ cassetteSvg.addEventListener('load', function() {
     setupReelGroups();
     updateCassetteDisplay();
   }
-});
+}
+
+// Handle both cases: SVG already loaded (cached) or not yet loaded
+cassetteSvg.addEventListener('load', initializeCassetteSvg);
+// Also check if already loaded (cached SVG won't fire load event)
+if (cassetteSvg.contentDocument) {
+  // Small delay to ensure SVG DOM is ready
+  setTimeout(() => {
+    if (!svgDoc && cassetteSvg.contentDocument) {
+      initializeCassetteSvg();
+    }
+  }, 0);
+}
 
 function setupReelGroups() {
   if (!svgDoc) return;
@@ -503,6 +516,16 @@ if (resetStateViaQuery) {
   } catch (_) {
     // ignore URL cleanup failures
   }
+}
+
+try {
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('_swu')) {
+    url.searchParams.delete('_swu');
+    window.history.replaceState({}, '', url.toString());
+  }
+} catch (_) {
+  // ignore URL cleanup failures
 }
 
 restoredPlayerState = readPersistedPlayerState();
@@ -1109,11 +1132,9 @@ function updateCassetteLines(thickColor, thinColor) {
 function playTrack() {
   if (ytPlayer && ytReady) {
     ytPlayer.playVideo();
+    // Note: isPlaying and reel animation are set by onPlayerStateChange
+    // when YouTube confirms playback has actually started
   }
-  isPlaying = true;
-  updatePlayButton();
-  startReelAnimation();
-  persistPlayerState({ force: true });
 }
 
 // Pause track
@@ -1121,11 +1142,9 @@ function pauseTrack() {
   if (ytPlayer && ytReady) {
     playbackResumeSeconds = ytPlayer.getCurrentTime();
     ytPlayer.pauseVideo();
+    // Note: isPlaying and reel animation are set by onPlayerStateChange
+    // when YouTube confirms playback has paused
   }
-  isPlaying = false;
-  updatePlayButton();
-  stopReelAnimation();
-  persistPlayerState({ force: true });
 }
 
 // Toggle play/pause
@@ -1437,19 +1456,42 @@ function setKnobFromVolume(value) {
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   let hasReloadedForSw = false;
+  const SW_RELOAD_FLAG = 'cassette-sw-reload-pending';
+  const SW_DISMISSED_WAITING_KEY = 'cassette-sw-dismissed-waiting';
 
   const toastEl = document.getElementById('pwaUpdateToast');
   const toastBtn = document.getElementById('pwaUpdateBtn');
+  const isReloadPending = sessionStorage.getItem(SW_RELOAD_FLAG) === '1';
+  const dismissedWaitingScript = sessionStorage.getItem(SW_DISMISSED_WAITING_KEY);
 
-  const applyUpdateAndReload = (worker) => {
-    if (toastEl) toastEl.hidden = true;
-    if (worker) {
-      worker.postMessage({ type: 'SKIP_WAITING' });
-    }
-    // Fallback for environments where controllerchange is delayed/missed.
+  const forceReloadWithCacheBust = () => {
+    window.location.reload();
     window.setTimeout(() => {
-      window.location.reload();
-    }, 1200);
+      const url = new URL(window.location.href);
+      url.searchParams.set('_swu', Date.now().toString());
+      window.location.replace(url.toString());
+    }, 900);
+  };
+
+  const applyUpdateAndReload = async (worker, registration) => {
+    sessionStorage.setItem(SW_RELOAD_FLAG, '1');
+    if (worker?.scriptURL) {
+      sessionStorage.setItem(SW_DISMISSED_WAITING_KEY, worker.scriptURL);
+    }
+    if (toastEl) toastEl.hidden = true;
+    try {
+      await registration?.update();
+    } catch (_) {
+      // Ignore update check failures and continue reload fallback.
+    }
+
+    const targetWorker = worker || registration?.waiting || registration?.installing;
+    if (targetWorker && typeof targetWorker.postMessage === 'function') {
+      targetWorker.postMessage({ type: 'SKIP_WAITING' });
+    }
+
+    // Fallback for environments where controllerchange is delayed/missed.
+    window.setTimeout(forceReloadWithCacheBust, 1200);
   };
 
   const showUpdateToast = (onReload) => {
@@ -1462,9 +1504,21 @@ function registerServiceWorker() {
     if (!registration) return;
 
     if (registration.waiting) {
-      showUpdateToast(() => {
-        applyUpdateAndReload(registration.waiting);
-      });
+      if (dismissedWaitingScript && registration.waiting.scriptURL === dismissedWaitingScript) {
+        if (toastEl) toastEl.hidden = true;
+        return;
+      }
+      if (isReloadPending) {
+        applyUpdateAndReload(registration.waiting, registration);
+      } else {
+        showUpdateToast(() => {
+          applyUpdateAndReload(registration.waiting, registration);
+        });
+      }
+    } else {
+      sessionStorage.removeItem(SW_RELOAD_FLAG);
+      sessionStorage.removeItem(SW_DISMISSED_WAITING_KEY);
+      if (toastEl) toastEl.hidden = true;
     }
 
     registration.addEventListener('updatefound', () => {
@@ -1473,7 +1527,7 @@ function registerServiceWorker() {
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
           showUpdateToast(() => {
-            applyUpdateAndReload(newWorker);
+            applyUpdateAndReload(newWorker, registration);
           });
         }
       });
@@ -1483,6 +1537,9 @@ function registerServiceWorker() {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (hasReloadedForSw) return;
     hasReloadedForSw = true;
+    sessionStorage.removeItem(SW_RELOAD_FLAG);
+    sessionStorage.removeItem(SW_DISMISSED_WAITING_KEY);
+    if (toastEl) toastEl.hidden = true;
     window.location.reload();
   });
 
@@ -1490,6 +1547,9 @@ function registerServiceWorker() {
     navigator.serviceWorker.register('sw.js')
       .then((registration) => {
         watchRegistration(registration);
+        if (toastBtn && !toastBtn.onclick) {
+          toastBtn.onclick = () => applyUpdateAndReload(registration.waiting, registration);
+        }
       })
       .catch((error) => {
         console.warn('Service worker registration failed:', error);
@@ -1609,11 +1669,41 @@ function loadTape(tapeIndex, options = {}) {
   updateCassetteDisplay();
   updateTapeWheelState();
 
-  // Reset progress
-  progressFill.style.width = '0%';
-  currentTimeEl.textContent = '0:00';
+  // Set progress - show persisted position if available
   if (playlist.length > 0) {
     totalTimeEl.textContent = playlist[currentTrackIndex].duration;
+
+    if (playbackResumeSeconds && playbackResumeSeconds > 0) {
+      // Calculate progress percentage
+      let displayTime = playbackResumeSeconds;
+      let trackDurationSecs = 0;
+
+      if (tape.isPlaylist) {
+        // Playlist tape: parse duration string to seconds
+        const durationParts = playlist[currentTrackIndex].duration.split(':').map(Number);
+        trackDurationSecs = durationParts.length === 2
+          ? durationParts[0] * 60 + durationParts[1]
+          : durationParts[0] * 3600 + durationParts[1] * 60 + (durationParts[2] || 0);
+      } else {
+        // Single video tape: calculate position within track
+        const trackStart = playlist[currentTrackIndex].startSeconds || 0;
+        displayTime = playbackResumeSeconds - trackStart;
+        const durationParts = playlist[currentTrackIndex].duration.split(':').map(Number);
+        trackDurationSecs = durationParts.length === 2
+          ? durationParts[0] * 60 + durationParts[1]
+          : durationParts[0] * 3600 + durationParts[1] * 60 + (durationParts[2] || 0);
+      }
+
+      const percent = trackDurationSecs > 0 ? Math.min(100, (displayTime / trackDurationSecs) * 100) : 0;
+      progressFill.style.width = `${percent}%`;
+      currentTimeEl.textContent = formatTime(Math.max(0, displayTime));
+    } else {
+      progressFill.style.width = '0%';
+      currentTimeEl.textContent = '0:00';
+    }
+  } else {
+    progressFill.style.width = '0%';
+    currentTimeEl.textContent = '0:00';
   }
 
   if (autoPlay && ytPlayer && ytReady) {
